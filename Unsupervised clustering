@@ -1,0 +1,57 @@
+用TN的3758个差异蛋白对肿瘤样本进行分类，k-means无监督聚类}
+sum(differ_TN=="T")
+tumor_samplemat <- Tumor_diffmatrix[,c(differ_TN=="T")] #TN的3758个差异蛋白*309个tumor样本 矩阵
+
+library(ConsensusClusterPlus)
+
+
+cons_cluster<- ConsensusClusterPlus(d=as.matrix(tumor_samplemat), maxK=6, reps=1000, pItem=0.8, pFeature = 0.8,clusterAlg='km',title="kmeans_result",distance = 'euclidean',seed=1262118388.71279,plot="pdf")
+icl <- calcICL(cons_cluster,title="tumor_kmeans_consensus_cluster",plot="pdf",writeTable=T)
+
+#3 classter
+class3 <- as.data.frame(cons_cluster[[3]]['consensusClass'])
+write.table(class3,file = "class3.csv")
+#pheatmap不对样本聚类
+match(names(tumor_samplemat),row.names(class3))
+
+ann_col3 <- data.frame(ID=row.names(class3),subgroup=class3$consensusClass)
+ann_col3 <- ann_col3[order(ann_col3$subgroup),]
+ann_col3 <-data.frame(subgroup=paste0("group",ann_col3$subgroup),row.names = ann_col3$ID)
+
+a<- match(sapply(row.names(ann_col3),function(x){str_split(x,"_")[[1]][2]}),info1$Sample_ID)
+sum(is.na(a))
+sum(is.na(info1$Gender[a]))
+
+ann_col3$gender <- info1$Gender[a]
+ann_col3$grade <- G3$Label[match(sapply(row.names(ann_col3),function(x){str_split(x,"_")[[1]][2]}),G3$Sample_ID)] 
+ann_col3$LGG <- G4$Label[match(sapply(row.names(ann_col3),function(x){str_split(x,"_")[[1]][2]}),G4$Sample_ID)]
+ann_col3$p53 <- info1$P53[a]
+ann_col3$IDH <- G6$Label[match(sapply(row.names(ann_col3),function(x){str_split(x,"_")[[1]][2]}),G6$Sample_ID)]
+ann_col3$Chemotherapy <- info1$Chemotherapy[a]
+ann_col3$NEJM <- G5$Label[match(sapply(row.names(ann_col3),function(x){str_split(x,"_")[[1]][2]}),G5$Sample_ID)]
+ann_col3$Histology <- G7$Label[match(sapply(row.names(ann_col3),function(x){str_split(x,"_")[[1]][2]}),G7$Sample_ID)]
+
+write.table(ann_col3,file = "class3.label.csv")
+#ann_colors <- list(subgroup = c("group1"="#E69F00","group2"="#0072B2","group3"="#D55E00"))
+tumor_samplemat2 <- tumor_samplemat[,row.names(ann_col3)]
+
+tumormatrix_filter <- tumor_samplemat2[apply(tumor_samplemat2,1,function(x){sd(x)})!=0,]#过滤后才能对row做scale
+
+centermatrix <- apply(tumormatrix_filter, 1, function(x) {scale(x)})
+testdata <- data.frame(t(centermatrix))
+names(testdata) <- names(tumormatrix_filter)
+  #  match(as.numeric(sapply(names(tumor_samplemat2),function(x){str_split(x,"_")[[1]][2]})),G2$Sample_ID)
+pheatmap(testdata,
+         fontsize_col = 8,
+         color = c(brewer.pal(11,"RdYlBu")[11:7],"azure1",brewer.pal(11,"RdYlBu")[5:1]),
+         annotation_col = ann_col3,
+         annotation_colors = ann_colors,
+         na_col = "#CCCCCC",
+         scale = "row", #对行数据进行标准化，保留NA
+         cluster_rows = T, 
+         cluster_cols = F,
+         show_rownames = F, 
+         show_colnames = F, 
+         filename = "Tumor_heatmap_sub3group_center2.pdf",       
+         main = "",
+         height = 15,width =15)
