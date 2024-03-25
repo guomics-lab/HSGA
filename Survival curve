@@ -1,0 +1,42 @@
+survival for 3subgroups
+```{r}
+springs <- G2$`Survival(Month)`[match(as.numeric(
+                                   sapply(
+                                     names(tumor_samplemat),
+                                     function(x){str_split(x,"_")[[1]][2]})),
+                      G2$Sample_ID)] 
+
+ names(tumor_samplemat)[13]   #矩阵的b03_014 sampleID在信息表中无
+
+tumor_spring <- tumor_samplemat[,!is.na(springs)]
+spring_info <- G2[match(as.numeric(sapply(names(tumor_spring),function(x){str_split(x,"_")[[1]][2]})),G2$Sample_ID),]
+spring_info$group <- class3$consensusClass[match(names(tumor_spring),row.names(class3))]
+
+library("survminer")
+library("survival")
+fit <- survfit(Surv(spring_info$`Survival(Month)`,spring_info$`Survival status`) ~ group,data = spring_info)
+pdf("survavial.pdf")
+ggsurvplot(fit,data = spring_info,
+                     pval = TRUE, #添加P值
+                     conf.int = TRUE,
+                     risk.table = TRUE, # Add risk table
+                     risk.table.col = "strata", # Change risk table color by groups
+                     linetype = "strata", # Change line type by groups
+                     surv.median.line = "hv", # Specify median survival
+                     legend.title = "Subgroup",
+                     ggtheme = theme_bw(), # Change ggplot2 theme
+                     palette = c("#E7B800", "#2E9FDF","#4575B4"),
+          
+)
+dev.off()
+# ggsurvplot(fit, data = lung,
+#            conf.int = TRUE,#添加置信区间
+#            pval = TRUE,#添加P值
+#            fun = "pct",
+#            risk.table = TRUE,
+#            size = 1,
+#            linetype = "strata",
+#            palette = c("#E7B800","#2E9FDF"),
+#            legend = "bottom",
+#            legend.title = "Sex",
+#            legend.labs = c("Male","Female"))
