@@ -1,0 +1,227 @@
+## unpaired t-test
+```{r}
+volcano.plot <- function(data,#data.frame
+                         group1,
+                         group2,
+                         label1,
+                         label2,
+                         fold_change = 2){
+  df1 <- data
+  #计算foldchange
+  df1$fd <- apply(2^df1,1, function(x) log2((mean(x[group1],na.rm = T)/mean(x[group2],na.rm = T))))
+  p_value <- apply(df1,
+                    1,
+                    function(y) {
+
+                      p_try = tryCatch(t.test(y[group1],
+                                              y[group2],
+                                              paired = F,
+                                              var.equal = F)$p.value,
+                                       error = function(x) NA)
+                    })
+   
+  #给data增加p-value列
+  df1$P_value<-p_value
+  df1$P_value_adjust<-p.adjust(df1$P_value, method="BH")
+  
+  #画图
+  pdf(paste0(label1,"_",label2, "_volcano.pdf"),width=4, height=4)
+ 
+  plot(df1$fd, -log10(df1$P_value_adjust), col="#00000033", pch=19,
+        xlab=paste("log2 (fold change)"),
+        ylab="-log10 (adjust P value)",xlim=c(-4,4),
+        main=paste0(label1," : ",label2))
+ 
+  #存储上调和下调蛋白信息
+  up <- subset(df1, df1$P_value_adjust < 0.05 & df1$fd > log2(fold_change))
+  down <- subset(df1, df1$P_value_adjust < 0.05 & df1$fd < -log2(fold_change))
+  print(paste0("down:",nrow(down)))
+  print(paste0("up:",nrow(up)))
+  write.csv(up,file = paste0(label1,"_",label2, "_up_volcano.csv"))
+  write.csv(down,file = paste0(label1,"_",label2, "_dw_volcano.csv"))
+  
+  points(up$fd, -log10(up$P_value_adjust), col=1, bg = brewer.pal(9, "YlOrRd")[6], pch=21, cex=1.2)
+  points(down$fd, -log10(down$P_value_adjust), col = 1, bg = brewer.pal(11,"RdBu")[9], pch = 21,cex=1.2)
+  # text(paste0('N=',nrow(df)))添加
+  abline(h=-log10(0.05), v=c(-log2(fold_change),log2(fold_change)), lty=2,lwd=1)
+  dev.off()
+    
+}
+
+no_Tsample <- T_id[is.na(match(T_id,sampleid))] #
+  Tsample <- sampleid[!is.na(match(sampleid,T_id))]
+
+volcano.plot(df6,(!is.na(match(sampleid,T_id))),(!is.na(match(sampleid,N_id))),"Tumor","Normal")
+sum((!is.na(match(sampleid,T_id))))
+sum((!is.na(match(sampleid,N_id)))) #309:52
+
+volcano.plot(df6,(!is.na(match(sampleid,longlife))),(!is.na(match(sampleid,shortlife))),"Long","Short") #39:39
+
+volcano.plot(df6,(!is.na(match(sampleid,LGG))),(!is.na(match(sampleid,GBM))),"LGG","GBM") #164:135
+
+volcano.plot(df6,(!is.na(match(sampleid,triple))),(!is.na(match(sampleid,IDH_mut))),"triple","IDH_mut") #41:46
+volcano.plot(df6,(!is.na(match(sampleid,IDH_Mut))),(!is.na(match(sampleid,IDH_WT))),"IDH_Mut","IDH_Wt") #93:70
+volcano.plot(df6,(!is.na(match(sampleid,p53_Mut))),(!is.na(match(sampleid,p53_WT))),"p53_Mut","p53_Wt") #141:159
+volcano.plot(df6,(!is.na(match(sampleid,methylation))),(!is.na(match(sampleid,MGMT))),"methylation","Non-meth") #106:55
+volcano.plot(df6,(!is.na(match(sampleid,TERT_M))),(!is.na(match(sampleid,TERT_W))),"TERT_Mut","TERT_Wt") #87:74
+
+#####NA rate for each group
+Tnum <- (!is.na(match(sampleid,T_id)))
+Nnum <- (!is.na(match(sampleid,N_id)))
+Longnum <- (!is.na(match(sampleid,longlife)))
+shortnum<- (!is.na(match(sampleid,shortlife)))
+LGnum<-(!is.na(match(sampleid,LGG)))
+GBMnum <-(!is.na(match(sampleid,GBM)))
+triplenum<-(!is.na(match(sampleid,triple)))
+IDHmutonly<-(!is.na(match(sampleid,IDH_mut)))
+IDH_Mutnum <- (!is.na(match(sampleid,IDH_Mut)))
+IDH_WTnum <- (!is.na(match(sampleid,IDH_WT)))
+p53num1 <-(!is.na(match(sampleid,p53_Mut)))
+p53num2 <-(!is.na(match(sampleid,p53_WT)))
+methy1 <-(!is.na(match(sampleid,methylation)))
+methy2 <-(!is.na(match(sampleid,MGMT)))
+TERT1<-(!is.na(match(sampleid,TERT_M)))
+TERT2 <-(!is.na(match(sampleid,TERT_W)))
+
+na0 <- rep(c(0),nrow(df5)) #df5未填充NA
+na_rate<-0
+for (i in c("Tnum","Nnum","Longnum","shortnum","LGnum","GBMnum","triple","IDHmutonly","IDH_Mutnum","IDH_WTnum","p53num1","p53num2","methy1","methy2","TERT1","TERT2")) {
+ pmatrx <- df5[,get(i)]
+ na_tmp <- as.numeric(apply(pmatrx, 1, function(x) {sum(is.na(x)/length(x))}))
+na0 <- cbind.data.frame(na0,na_tmp)
+na_rate<- c(na_rate,na_tmp)
+}
+na_rate <- na_rate[-1]
+na0 <-na0[,-1]
+
+names(na0) <- c("Tumor","Normal","Long","short","LGG","GBM","triple","IDHmutonly","IDH_Mutnum","IDH_WTnum","p53Mut","p53Wt","methy","Non-methy","TertMut","TertWt")
+row.names(na0) <- row.names(df5) #14组的na缺失率
+write.table(na0,file = "HSGA_groupNA_ratio.txt",quote = F,row.names = T)
+
+na.tabel <- data.frame(na_ratio=na_rate,sample=rep(names(na0),each=nrow(df5)))
+
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals))) 
+
+# p<-ggplot(na.tabel, aes(x =sample , y=na_ratio)) + 
+#  scale_fill_manual(values=sample(col_vector,14))+
+#   geom_boxplot(width=0.1)+
+# theme(legend.direction = 'horizontal',legend.position = 'top',panel.grid.major =element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(),axis.line = element_line(colour = "black"))+
+#    theme(axis.text = element_text(size = 15,colour = "black"),text = element_text(size = 15,colour = "black"))+
+#    theme(axis.text.x = element_text( hjust = 1,angle = 45))+
+#    theme(legend.position = "none")
+# ggsave("Techrepeat_correlation_hsga.pdf",plot =p ,device = NULL,width = 6, height = 6)
+# Default method = "kruskal.test" for multiple groups
+n=1
+for (i in seq(1,16,2)) {
+  na.tmp <- data.frame(na_ratio=c(na0[,i],na0[,i+1]),sample=rep(names(na0)[c(i,i+1)],each=nrow(df5)))
+  p[n]<- ggplot(na.tmp, aes(x =sample,y=na_ratio,fill=sample))
+n=n+1
+}
+
+d<-list() #ggplot+boxplot的数据结构是9个list元素
+for (n in 1:8) {
+  d[[n]] <- ggplot(p[[n]], aes(x =sample,y=na_ratio,fill=sample))+
+  geom_boxplot()+#
+  stat_boxplot(geom = "errorbar",width=0.15)+
+  theme(axis.text.x = element_text(face="bold", color="black", size=8))+
+  stat_compare_means()#
+}
+
+pdf("HSGA_NA_groupboxplot.pdf",height = 15,width = 20,margin(2,1,2,1))
+ggarrange(d[[1]],d[[2]],d[[3]],d[[4]],d[[5]],d[[6]],d[[7]],d[[8]],ncol = 4,nrow = 2)
+# ggsave("na_group_hsga.pdf",plot =pic ,device = NULL,width = 6, height = 6)
+dev.off()
+
+
+# ggplot(mydata, aes(x = factor(TIME, level = c("2016年6月", "2016年8月", "2016年10月", "2017年5月", "2017年7月")), y=value,fill=TIME))可使得横坐标按顺序排序
+# 
+# ggboxplot(na.tabel, x = "sample", y = "na_ratio",       
+#           color = "sample",add="jitter", palette = )+ #加点
+# # Change method to anova
+# ggboxplot(mydata, x = "gene", y = "Expression",
+#           color = "gene", add="jitter", palette = "jama")+
+#   stat_compare_means(method = "anova")
+
+```
+#            
+#c("Survival", "Grade","LGG_GBM","NEJM_subtype","IDH","Histology","P53","MGMT_methylation","1q19q", "TERT")
+
+```{r annova}
+G3<- info[["Grade"]]
+G7 <- info[["Histology"]]
+G10 <- info[["1q19q"]]
+
+G3_matrix <- df6[,(!is.na(match(sampleid,G3$Sample_ID)))]
+G7_matrix <- df6[,(!is.na(match(sampleid,G7$Sample_ID)))]
+G10_matrix <- df6[,(!is.na(match(sampleid,G10$Sample_ID)))]
+
+#"II"  "IV"  "III" "I"  
+label <-G3$Label[match(as.numeric(sapply(names(G3_matrix), function(x){str_split(x,"_")[[1]][2]})),G3$Sample_ID)]
+df.allanov <- data.frame(deal=label,t(G3_matrix))
+
+#> unique(label2) "Astrocytoma"       "Glioblastoma"      "Oligodendroglioma" "Oligoastrocytoma" 
+label2 <- G7$Label[match(as.numeric(sapply(names(G7_matrix), function(x){str_split(x,"_")[[1]][2]})),G7$Sample_ID)]
+df.allanov2 <- data.frame(deal=label2,t(G7_matrix))
+
+#"19q"        "wt"         "codelation" "1p"     
+label3 <- G10$Label[match(as.numeric(sapply(names(G10_matrix), function(x){str_split(x,"_")[[1]][2]})),G10$Sample_ID)]
+df.allanov3 <- data.frame(deal=label3,t(G10_matrix))
+
+
+#1 Grade
+p <- c()
+for(i in 2:ncol(df.allanov)){
+  name <- df.allanov[,colnames(df.allanov)[i]]
+  anova_p = summary(aov(name ~ deal,data = df.allanov))[[1]]$`Pr(>F)`[1] %>%format(digits = 3, scientific = FALSE)
+  p <- append(p,anova_p)
+}
+
+adp <- p.adjust(p, method = "BH")%>%format(digits = 3, scientific = FALSE)
+
+allanov_result <- data.frame(G3_matrix,pvalue=p,adjust.pvalue = adp)
+write.csv(allanov_result,file = "Grade_allprot_annova.csv",row.names = T)
+
+differ_result <- allanov_result[(allanov_result$adjust.pvalue<0.05),] 
+nrow(differ_result)
+write.csv(differ_result,file = "Grade_differprot_ajustp0.05.csv",row.names = T)
+differ_result1 <- read.table(file="Grade_differprot_ajustp0.05.csv",header = T,sep = ",",row.names = 1)
+
+#2 Histology
+p <- c()
+for(i in 2:ncol(df.allanov2)){
+  name <- df.allanov2[,colnames(df.allanov2)[i]]
+  anova_p = summary(aov(name ~ deal,data = df.allanov2))[[1]]$`Pr(>F)`[1] %>%format(digits = 3, scientific = FALSE)
+  p <- append(p,anova_p)
+}
+
+adp <- p.adjust(p, method = "BH")%>%format(digits = 3, scientific = FALSE)
+
+allanov_result <- data.frame(G7_matrix,pvalue=p,adjust.pvalue = adp)
+write.csv(allanov_result,file = "Histology_allprot_annova.csv",row.names = T)
+
+differ_result <- allanov_result[(allanov_result$adjust.pvalue<0.05),] 
+nrow(differ_result)
+write.csv(differ_result,file = "Histology_differprot_ajustp0.05.csv",row.names = T)
+differ_result2 <- read.table(file="Histology_differprot_ajustp0.05.csv",header = T,sep = ",",row.names = 1)
+
+#3 1q19q
+p <- c()
+for(i in 2:ncol(df.allanov3)){
+  name <- df.allanov3[,colnames(df.allanov3)[i]]
+  anova_p = summary(aov(name ~ deal,data = df.allanov3))[[1]]$`Pr(>F)`[1] %>%format(digits = 3, scientific = FALSE)
+  p <- append(p,anova_p)
+}
+
+adp <- p.adjust(p, method = "BH")%>%format(digits = 3, scientific = FALSE)
+
+allanov_result <- data.frame(G10_matrix,pvalue=p,adjust.pvalue = adp)
+write.csv(allanov_result,file = "1q19q_allprot_annova.csv",row.names = T)
+
+differ_result <- allanov_result[(allanov_result$adjust.pvalue<0.05),] 
+nrow(differ_result) #21
+write.csv(differ_result,file = "1q19q_differprot_ajustp0.05.csv",row.names = T)
+
+
+# label1<-gsub("[0-9]","",names(df4))
+# drawPCA(differ_result[,-c(14,15)],label1,"anova",brewer.pal(9,"Set1")[2:5],height = 5,width = 6) 
